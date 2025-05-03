@@ -1,0 +1,21 @@
+CREATE TABLE users (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    status_otp TINYINT,
+    nik VARCHAR(50),
+    photo TEXT,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    username VARCHAR(100) NOT NULL,
+    email VARCHAR(150) NOT NULL,
+    gender VARCHAR(10),
+    address TEXT,
+    phone_number VARCHAR(20),
+    password VARCHAR(255) NOT NULL,
+    email_verified_at DATETIME,
+    remember_token TEXT,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100),
+    created_time DATETIME,
+    updated_time DATETIME,
+    status TINYINT NOT NULL
+);
