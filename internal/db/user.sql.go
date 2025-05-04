@@ -331,6 +331,37 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 	return i, err
 }
 
+const getUserByUsername = `-- name: GetUserByUsername :one
+SELECT id, status_otp, nik, photo, first_name, last_name, username, email, gender, address, phone_number, password, email_verified_at, remember_token, created_by, updated_by, created_time, updated_time, status FROM users WHERE username = ? LIMIT 1
+`
+
+func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByUsername, username)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.StatusOtp,
+		&i.Nik,
+		&i.Photo,
+		&i.FirstName,
+		&i.LastName,
+		&i.Username,
+		&i.Email,
+		&i.Gender,
+		&i.Address,
+		&i.PhoneNumber,
+		&i.Password,
+		&i.EmailVerifiedAt,
+		&i.RememberToken,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.CreatedTime,
+		&i.UpdatedTime,
+		&i.Status,
+	)
+	return i, err
+}
+
 const getUserOtpByUserID = `-- name: GetUserOtpByUserID :one
 SELECT id, user_id, otp, expired_at, created_by, updated_by, created_time, updated_time, status FROM user_otps WHERE user_id = ? ORDER BY created_time DESC LIMIT 1
 `
@@ -350,6 +381,163 @@ func (q *Queries) GetUserOtpByUserID(ctx context.Context, userID int64) (UserOtp
 		&i.Status,
 	)
 	return i, err
+}
+
+const getUserPrivileges = `-- name: GetUserPrivileges :many
+SELECT 
+    rp.id AS id,
+    rp.role AS role,
+    p.module AS module,
+    p.submodule AS submodule,
+    p.ordering AS ordering,
+    rp.action AS action,
+    rp.uri AS uri,
+    rp.method AS method,
+    rp.created_by AS created_by,
+    rp.updated_by AS updated_by,
+    rp.created_time AS created_time,
+    rp.updated_time AS updated_time,
+    rp.status AS status
+FROM role_privileges rp
+JOIN priveleges p ON 
+    rp.action = p.action AND 
+    rp.uri = p.uri AND 
+    rp.method = p.method
+WHERE rp.role IN (
+    SELECT roles_id FROM role_users WHERE user_id = ?
+) AND rp.status = 1
+`
+
+type GetUserPrivilegesRow struct {
+	ID          int64          `json:"id"`
+	Role        int16          `json:"role"`
+	Module      sql.NullString `json:"module"`
+	Submodule   sql.NullString `json:"submodule"`
+	Ordering    sql.NullString `json:"ordering"`
+	Action      sql.NullString `json:"action"`
+	Uri         sql.NullString `json:"uri"`
+	Method      sql.NullString `json:"method"`
+	CreatedBy   sql.NullString `json:"created_by"`
+	UpdatedBy   sql.NullString `json:"updated_by"`
+	CreatedTime sql.NullString `json:"created_time"`
+	UpdatedTime sql.NullString `json:"updated_time"`
+	Status      int8           `json:"status"`
+}
+
+func (q *Queries) GetUserPrivileges(ctx context.Context, userID int64) ([]GetUserPrivilegesRow, error) {
+	rows, err := q.db.QueryContext(ctx, getUserPrivileges, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetUserPrivilegesRow{}
+	for rows.Next() {
+		var i GetUserPrivilegesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Role,
+			&i.Module,
+			&i.Submodule,
+			&i.Ordering,
+			&i.Action,
+			&i.Uri,
+			&i.Method,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.CreatedTime,
+			&i.UpdatedTime,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUserRoles = `-- name: GetUserRoles :many
+SELECT 
+    ru.id AS id,
+    ru.user_id AS user_id,
+    r.id AS role_id,
+    r.name AS role_name,
+    r.code AS role_code,
+    r.created_by AS role_created_by,
+    r.updated_by AS role_updated_by,
+    r.created_time AS role_created_time,
+    r.updated_time AS role_updated_time,
+    r.status AS role_status,
+    ru.created_by AS ru_created_by,
+    ru.updated_by AS ru_updated_by,
+    ru.created_time AS ru_created_time,
+    ru.updated_time AS ru_updated_time,
+    ru.status AS ru_status
+FROM role_users ru
+JOIN roles r ON ru.roles_id = r.id
+WHERE ru.user_id = ?
+`
+
+type GetUserRolesRow struct {
+	ID              int64          `json:"id"`
+	UserID          int64          `json:"user_id"`
+	RoleID          int64          `json:"role_id"`
+	RoleName        string         `json:"role_name"`
+	RoleCode        string         `json:"role_code"`
+	RoleCreatedBy   sql.NullString `json:"role_created_by"`
+	RoleUpdatedBy   sql.NullString `json:"role_updated_by"`
+	RoleCreatedTime sql.NullString `json:"role_created_time"`
+	RoleUpdatedTime sql.NullString `json:"role_updated_time"`
+	RoleStatus      int8           `json:"role_status"`
+	RuCreatedBy     sql.NullString `json:"ru_created_by"`
+	RuUpdatedBy     sql.NullString `json:"ru_updated_by"`
+	RuCreatedTime   sql.NullString `json:"ru_created_time"`
+	RuUpdatedTime   sql.NullString `json:"ru_updated_time"`
+	RuStatus        int8           `json:"ru_status"`
+}
+
+func (q *Queries) GetUserRoles(ctx context.Context, userID int64) ([]GetUserRolesRow, error) {
+	rows, err := q.db.QueryContext(ctx, getUserRoles, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetUserRolesRow{}
+	for rows.Next() {
+		var i GetUserRolesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.RoleID,
+			&i.RoleName,
+			&i.RoleCode,
+			&i.RoleCreatedBy,
+			&i.RoleUpdatedBy,
+			&i.RoleCreatedTime,
+			&i.RoleUpdatedTime,
+			&i.RoleStatus,
+			&i.RuCreatedBy,
+			&i.RuUpdatedBy,
+			&i.RuCreatedTime,
+			&i.RuUpdatedTime,
+			&i.RuStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listPriveleges = `-- name: ListPriveleges :many

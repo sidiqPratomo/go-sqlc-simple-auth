@@ -59,3 +59,51 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetRolePrivilegesByRole :many
 SELECT * FROM role_privileges WHERE role = ? AND status = 1;
+
+-- name: GetUserByUsername :one
+SELECT * FROM users WHERE username = ? LIMIT 1;
+
+-- name: GetUserRoles :many
+SELECT 
+    ru.id AS id,
+    ru.user_id AS user_id,
+    r.id AS role_id,
+    r.name AS role_name,
+    r.code AS role_code,
+    r.created_by AS role_created_by,
+    r.updated_by AS role_updated_by,
+    r.created_time AS role_created_time,
+    r.updated_time AS role_updated_time,
+    r.status AS role_status,
+    ru.created_by AS ru_created_by,
+    ru.updated_by AS ru_updated_by,
+    ru.created_time AS ru_created_time,
+    ru.updated_time AS ru_updated_time,
+    ru.status AS ru_status
+FROM role_users ru
+JOIN roles r ON ru.roles_id = r.id
+WHERE ru.user_id = ?;
+
+-- name: GetUserPrivileges :many
+SELECT 
+    rp.id AS id,
+    rp.role AS role,
+    p.module AS module,
+    p.submodule AS submodule,
+    p.ordering AS ordering,
+    rp.action AS action,
+    rp.uri AS uri,
+    rp.method AS method,
+    rp.created_by AS created_by,
+    rp.updated_by AS updated_by,
+    rp.created_time AS created_time,
+    rp.updated_time AS updated_time,
+    rp.status AS status
+FROM role_privileges rp
+JOIN priveleges p ON 
+    rp.action = p.action AND 
+    rp.uri = p.uri AND 
+    rp.method = p.method
+WHERE rp.role IN (
+    SELECT roles_id FROM role_users WHERE user_id = ?
+) AND rp.status = 1;
